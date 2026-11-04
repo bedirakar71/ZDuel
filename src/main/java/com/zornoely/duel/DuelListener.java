@@ -134,7 +134,7 @@ public class DuelListener implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
         if (!(e.getPlayer() instanceof Player p)) return;
-        if (LootManager.LOOT_TITLE.equals(e.getView().getTitle())) {
+        if (LootManager.LOOT_TITLE.equals(e.getView().title())) {
             plugin.getLootManager().onInventoryClose(p, e.getInventory());
         }
     }
