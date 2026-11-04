@@ -1,5 +1,7 @@
 package com.zornoely.duel;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -12,8 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 
 public class GUI {
-    public static final String QUEUE_TITLE  = "ZornoEly PvP Sırası";
-    public static final String INVITE_TITLE = "Düello Modu Seç";
+    public static final Component QUEUE_TITLE  = Component.text("ZornoEly PvP Sırası", NamedTextColor.DARK_PURPLE);
+    public static final Component INVITE_TITLE = Component.text("Düello Modu Seç", NamedTextColor.DARK_GRAY);
 
     public static void openQueue(Player p, ZornoElyDuel plugin) {
         Inventory inv = Bukkit.createInventory(null, 27, QUEUE_TITLE);
