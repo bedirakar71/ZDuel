@@ -1,7 +1,6 @@
 package com.zornoely.duel;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -77,8 +76,9 @@ public class LootManager {
     }
 
     public void onInventoryClose(Player p, Inventory inv) {
-        if (inv == null || !LOOT_TITLE.equals(inv.getView().title())) return;
         UUID uuid = p.getUniqueId();
+        
+        // Eğer bu oyuncu ganimet envanterini açmadıysa işlem yapma
         if (!openInventories.remove(uuid)) return;
 
         List<ItemStack> remaining = new ArrayList<>();
