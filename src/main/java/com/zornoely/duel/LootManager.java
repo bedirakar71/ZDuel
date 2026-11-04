@@ -1,6 +1,7 @@
 package com.zornoely.duel;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -12,7 +13,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.*;
 
 public class LootManager {
-    public static final String LOOT_TITLE = "Ganimet Sandığı";
+    public static final Component LOOT_TITLE = Component.text("Ganimet Sandığı");
 
     private final ZornoElyDuel plugin;
     private final Map<UUID, List<ItemStack>> loots = new HashMap<>();
@@ -76,7 +77,7 @@ public class LootManager {
     }
 
     public void onInventoryClose(Player p, Inventory inv) {
-        if (inv == null || !LOOT_TITLE.equals(inv.getTitle())) return;
+        if (inv == null || !LOOT_TITLE.equals(inv.getView().title())) return;
         UUID uuid = p.getUniqueId();
         if (!openInventories.remove(uuid)) return;
 
