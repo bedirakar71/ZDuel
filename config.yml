@@ -1,0 +1,5 @@
+config-version: 2
+settings:
+  duel-duration-minutes: 15
+  loot-duration-seconds: 20
+  hub-command: "hub"
