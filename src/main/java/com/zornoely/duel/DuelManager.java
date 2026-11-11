@@ -2,6 +2,8 @@ package com.zornoely.duel;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -57,6 +59,10 @@ public class DuelManager {
         Location s2 = arena.getSpawn2();
         if (s1 == null || s2 == null) return null;
 
+        // YENİ: Arenadaki eski düşen eşyaları temizle
+        clearDrops(s1);
+        clearDrops(s2);
+
         arena.setBusy(true);
         plugin.getQueueManager().removeFromAll(p1.getUniqueId());
         plugin.getQueueManager().removeFromAll(p2.getUniqueId());
@@ -79,6 +85,11 @@ public class DuelManager {
         Msg.duelStart(p1, p2.getName(), mode, arena.getName(), durationMinutes);
         Msg.duelStart(p2, p1.getName(), mode, arena.getName(), durationMinutes);
         return duel;
+    }
+
+    private void clearDrops(Location loc) {
+        if (loc == null || loc.getWorld() == null) return;
+        loc.getWorld().getNearbyEntities(loc, 50, 50, 50, e -> e instanceof Item).forEach(Entity::remove);
     }
 
     public void endDuel(Duel duel, UUID winnerUuid, String reason) {
