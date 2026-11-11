@@ -12,7 +12,6 @@ import org.bukkit.entity.Player;
 
 import java.time.Duration;
 
-/** Oyunculara giden tüm mesajlar tek yerde: hepsi aynı görünümde, değiştirmesi kolay. */
 public final class Msg {
     private Msg() { }
 
@@ -22,12 +21,10 @@ public final class Msg {
             ChatColor.DARK_GRAY + "" + ChatColor.STRIKETHROUGH
                     + "                                        " + ChatColor.RESET;
 
-    // ---------- Tek satırlık mesajlar ----------
     public static void info(CommandSender s, String text) { s.sendMessage(PREFIX + ChatColor.GRAY + text); }
     public static void ok(CommandSender s, String text)   { s.sendMessage(PREFIX + ChatColor.GREEN + text); }
     public static void warn(CommandSender s, String text) { s.sendMessage(PREFIX + ChatColor.RED + text); }
 
-    // ---------- Yardımcılar ----------
     private static void box(Player p, String... lines) {
         p.sendMessage(LINE);
         for (String l : lines) p.sendMessage(l);
@@ -41,7 +38,6 @@ public final class Msg {
                 Title.Times.times(Duration.ofMillis(300), Duration.ofSeconds(3), Duration.ofMillis(700))));
     }
 
-    // ---------- Düello akışı ----------
     public static void duelStart(Player p, String opponent, ArenaType mode, String arena, int minutes) {
         title(p, "DÜELLO!", NamedTextColor.RED, opponent + " ile karşı karşıyasın");
         box(p,
@@ -71,7 +67,6 @@ public final class Msg {
         target.sendMessage(LINE);
     }
 
-    /** Kazanan: rakip öldü ya da oyundan çıktı. */
     public static void win(Player p, String loserName, boolean quit, int itemCount, int lootSeconds) {
         title(p, "ZAFER!", NamedTextColor.GOLD, quit ? loserName + " oyundan çıktı" : loserName + " yenildi");
         p.sendMessage(LINE);
@@ -80,19 +75,14 @@ public final class Msg {
         if (itemCount > 0) {
             p.sendMessage(ChatColor.GRAY + " Ganimet: " + ChatColor.YELLOW + itemCount + " eşya"
                     + ChatColor.DARK_GRAY + "  •  " + ChatColor.GRAY + lootSeconds + " saniyen var");
-            p.sendMessage(Component.text(" ")
-                    .append(Component.text("[» SANDIĞI AÇ]", NamedTextColor.GREEN, TextDecoration.BOLD)
-                            .clickEvent(ClickEvent.runCommand("/duel sandik"))
-                            .hoverEvent(HoverEvent.showText(
-                                    Component.text("Tıkla: ganimet sandığını aç", NamedTextColor.GRAY))))
-                    .append(Component.text("   ya da /duel sandik", NamedTextColor.DARK_GRAY)));
+            p.sendMessage(ChatColor.GREEN + " Sandık açılıyor... "
+                    + ChatColor.DARK_GRAY + "(Kapatırsan: /duel sandik)");
         } else {
             p.sendMessage(ChatColor.GRAY + " Rakibinin eşyası yoktu, hub'a gönderiliyorsun...");
         }
         p.sendMessage(LINE);
     }
 
-    /** Kaybeden: öldükten hemen sonra (otomatik respawn → hub). */
     public static void lose(Player p, String winnerName, int lostItems) {
         title(p, "YENİLDİN", NamedTextColor.RED, winnerName + " kazandı");
         p.sendMessage(LINE);
@@ -114,7 +104,6 @@ public final class Msg {
                 ChatColor.GRAY + " Hub'a gönderiliyorsun...");
     }
 
-    // ---------- Ganimet ----------
     public static void lootTaken(Player p) {
         title(p, "GANİMET ALINDI", NamedTextColor.GREEN, "Hub'a gönderiliyorsun");
         box(p,
