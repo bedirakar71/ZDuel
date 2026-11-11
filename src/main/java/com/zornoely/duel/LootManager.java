@@ -33,7 +33,7 @@ public class LootManager {
     private final ZornoElyDuel plugin;
     private final Map<UUID, List<ItemStack>> loots = new HashMap<>();
     private final Map<UUID, Long> expireTimes = new HashMap<>();
-    private final Map<UUID, String> heldArenas = new HashMap<>();   // ganimet bitene kadar meşgul tutulan arena
+    private final Map<UUID, String> heldArenas = new HashMap<>();
     private final Set<UUID> openInventories = new HashSet<>();
     private final int durationSeconds;
 
@@ -44,7 +44,6 @@ public class LootManager {
 
     public int getDurationSeconds() { return durationSeconds; }
 
-    /** Kazananın mesajını Msg.win gönderir; burada sadece ganimet kaydedilir ve geri sayım başlar. */
     public void setLoot(UUID uuid, List<ItemStack> items, String arenaName) {
         List<ItemStack> list = loots.computeIfAbsent(uuid, k -> new ArrayList<>());
         list.addAll(items);
@@ -74,14 +73,14 @@ public class LootManager {
 
         List<ItemStack> items = loots.get(uuid);
         if (items.size() > MAX_SLOTS) {
-            // Sandığa sığmayan fazlalık kaybolmasın: doğrudan envantere ver
             List<ItemStack> extra = new ArrayList<>(items.subList(MAX_SLOTS, items.size()));
             items.subList(MAX_SLOTS, items.size()).clear();
             giveOrDrop(p, extra);
             Msg.info(p, "Sandığa sığmayan eşyalar doğrudan envanterine verildi.");
         }
 
-        int rows = Math.max(1, (items.size() + 8) / 9);
+        // BÜYÜK SANDIK: En az 3 satır (27 slot), en fazla 6 satır (54 slot)
+        int rows = Math.max(3, Math.min(6, (items.size() + 8) / 9));
         LootHolder holder = new LootHolder();
         Inventory inv = Bukkit.createInventory(holder, rows * 9, LOOT_TITLE);
         holder.setInventory(inv);
@@ -109,7 +108,6 @@ public class LootManager {
         }
     }
 
-    /** Her saniye çağrılır: süresi dolanları kapatır, kalanlara geri sayımı gösterir. */
     public void tick() {
         if (expireTimes.isEmpty()) return;
         long now = System.currentTimeMillis();
@@ -127,15 +125,14 @@ public class LootManager {
 
     private void expireLoot(UUID uuid, Player p) {
         boolean wasOpen = openInventories.contains(uuid);
-        finish(uuid);   // openInventories'den de çıkarır, böylece close eventi bir şey yapmaz
+        finish(uuid);
         if (p != null && p.isOnline()) {
-            if (wasOpen) p.closeInventory();   // açık sandık süre bitince kapanır, kalan eşyalar gider
+            if (wasOpen) p.closeInventory();
             Msg.lootExpired(p);
             plugin.sendToHub(p);
         }
     }
 
-    /** Ganimet sürecini bitirir ve tutulan arenayı boşa çıkarır. */
     private void finish(UUID uuid) {
         loots.remove(uuid);
         expireTimes.remove(uuid);
@@ -144,22 +141,20 @@ public class LootManager {
         if (arena != null) plugin.getArenaManager().release(arena);
     }
 
-    /** Oyuncu çıkınca çağrılır. */
     public void remove(UUID uuid) {
         finish(uuid);
     }
 
-    /** Eklenti kapanırken bekleyen ganimetleri oyunculara ver (kaybolmasın). */
     public void flushAll() {
         for (UUID uuid : new ArrayList<>(loots.keySet())) {
             Player p = Bukkit.getPlayer(uuid);
-            if (p != null && openInventories.contains(uuid)) p.closeInventory();   // kalanı loots'a yazar
+            if (p != null && openInventories.contains(uuid)) p.closeInventory();
             List<ItemStack> items = loots.get(uuid);
             if (p != null && p.isOnline()) {
                 if (items != null) giveOrDrop(p, items);
                 Msg.info(p, "Sunucu kapanıyor, ganimetin envanterine verildi.");
                 Location spawn = plugin.getFallbackSpawn();
-                if (spawn != null) p.teleport(spawn);   // arenada kalmasınlar
+                if (spawn != null) p.teleport(spawn);
             }
             finish(uuid);
         }
@@ -175,7 +170,6 @@ public class LootManager {
         }
     }
 
-    /** Action bar: ilerleme çubuklu geri sayım (yeşil → sarı → kırmızı). */
     private void sendBar(Player p, int secondsLeft) {
         int filled = (int) Math.ceil(BAR_SEGMENTS * (double) secondsLeft / durationSeconds);
         filled = Math.max(0, Math.min(BAR_SEGMENTS, filled));
