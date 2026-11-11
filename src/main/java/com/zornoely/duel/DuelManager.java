@@ -13,8 +13,8 @@ import java.util.UUID;
 public class DuelManager {
     private final ZornoElyDuel plugin;
     private final Map<UUID, Duel> activeDuels = new HashMap<>();
-    private final Set<UUID> killedInDuel = new HashSet<>();   // düelloda ölenler (respawn olunca hub'a gider)
-    private final Set<UUID> quitLosers = new HashSet<>();     // düelloda çıkıp yenilmiş sayılanlar (girince hub'a gider)
+    private final Set<UUID> killedInDuel = new HashSet<>();
+    private final Set<UUID> quitLosers = new HashSet<>();
     private final int durationMinutes;
 
     public DuelManager(ZornoElyDuel plugin) {
@@ -25,7 +25,6 @@ public class DuelManager {
     public Duel getDuel(UUID uuid)      { return activeDuels.get(uuid); }
     public boolean isInDuel(UUID uuid)  { return activeDuels.containsKey(uuid); }
 
-    /** Moddaki aktif maç sayısı (her düello 2 kez map'te olduğu için Set'e çevrilir). */
     public int countActive(ArenaType mode) {
         int count = 0;
         for (Duel d : new HashSet<>(activeDuels.values())) {
@@ -41,6 +40,12 @@ public class DuelManager {
         if (plugin.getLootManager().hasLoot(p1.getUniqueId())
                 || plugin.getLootManager().hasLoot(p2.getUniqueId())) return null;
 
+        if (plugin.getClanHook().isSameClan(p1, p2)) {
+            Msg.warn(p1, "Aynı klandan bir oyuncuyla düello yapamazsın!");
+            Msg.warn(p2, "Aynı klandan bir oyuncuyla düello yapamazsın!");
+            return null;
+        }
+
         Arena arena = plugin.getArenaManager().findAvailable(mode);
         if (arena == null) {
             String msg = "Bu mod için uygun boş arena bulunamadı!";
@@ -53,7 +58,6 @@ public class DuelManager {
         if (s1 == null || s2 == null) return null;
 
         arena.setBusy(true);
-        // Sırada bekliyorlarsa sıradan çıkar (aksi halde başka maça da çekilebilirlerdi)
         plugin.getQueueManager().removeFromAll(p1.getUniqueId());
         plugin.getQueueManager().removeFromAll(p2.getUniqueId());
 
@@ -66,7 +70,6 @@ public class DuelManager {
         boolean ok1 = p1.teleport(s1);
         boolean ok2 = p2.teleport(s2);
         if (!ok1 || !ok2) {
-            // Işınlanma başka bir eklenti tarafından iptal edildi: düelloda takılı kalmasınlar
             endDuel(duel, null, "TELEPORT_FAIL");
             if (ok1) plugin.sendToHub(p1);
             if (ok2) plugin.sendToHub(p2);
@@ -82,19 +85,14 @@ public class DuelManager {
         endDuel(duel, winnerUuid, reason, false);
     }
 
-    /**
-     * @param holdArena true ise arena boşa çıkarılmaz; ganimet süreci bitince LootManager boşaltır
-     *                  (kazanan arenada ganimet alırken yeni maç başlamasın diye).
-     */
     public void endDuel(Duel duel, UUID winnerUuid, String reason, boolean holdArena) {
         if (duel == null) return;
         boolean removed1 = activeDuels.remove(duel.getPlayer1(), duel);
         boolean removed2 = activeDuels.remove(duel.getPlayer2(), duel);
-        if (!removed1 && !removed2) return;   // bu düello zaten bitmiş
+        if (!removed1 && !removed2) return;
         if (!holdArena) plugin.getArenaManager().release(duel.getArenaName());
     }
 
-    /** Eklenti kapanırken arenadaki oyuncuları dışarı alır (tekrar girince arenada doğmasınlar). */
     public void evacuateAll() {
         Location spawn = plugin.getFallbackSpawn();
         for (UUID id : new HashSet<>(activeDuels.keySet())) {
@@ -124,13 +122,9 @@ public class DuelManager {
         }
     }
 
-    // ---- Ölen oyuncu: respawn olunca hub'a gider ----
     public void markKilled(UUID uuid)         { killedInDuel.add(uuid); }
     public boolean wasKilledInDuel(UUID uuid) { return killedInDuel.remove(uuid); }
-
-    // ---- Düelloda çıkış yapan: yenilmiş sayılır, tekrar girince hub'a gider ----
     public void markQuitLoss(UUID uuid)       { quitLosers.add(uuid); }
     public boolean wasQuitLoss(UUID uuid)     { return quitLosers.remove(uuid); }
-
     public void forget(UUID uuid)             { killedInDuel.remove(uuid); }
 }
