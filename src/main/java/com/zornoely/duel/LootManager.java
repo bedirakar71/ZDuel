@@ -35,11 +35,12 @@ public class LootManager {
     private final Map<UUID, Long> expireTimes = new HashMap<>();
     private final Map<UUID, String> heldArenas = new HashMap<>();
     private final Set<UUID> openInventories = new HashSet<>();
+    private final Set<UUID> claimedLoot = new HashSet<>(); // Ganimeti erken toplayanlar
     private final int durationSeconds;
 
     public LootManager(ZornoElyDuel plugin) {
         this.plugin = plugin;
-        this.durationSeconds = Math.max(1, plugin.getConfig().getInt("settings.loot-duration-seconds", 20));
+        this.durationSeconds = Math.max(1, plugin.getConfig().getInt("settings.loot-duration-seconds", 30));
     }
 
     public int getDurationSeconds() { return durationSeconds; }
@@ -48,6 +49,7 @@ public class LootManager {
         List<ItemStack> list = loots.computeIfAbsent(uuid, k -> new ArrayList<>());
         list.addAll(items);
         expireTimes.put(uuid, System.currentTimeMillis() + durationSeconds * 1000L);
+        claimedLoot.remove(uuid);
 
         if (arenaName != null) {
             String old = heldArenas.put(uuid, arenaName);
@@ -69,6 +71,10 @@ public class LootManager {
             Msg.warn(p, "Aktif bir ganimet sandığın yok!");
             return;
         }
+        if (claimedLoot.contains(uuid)) {
+            Msg.info(p, "Ganimeti zaten topladın! Sürenin dolmasını beklemelisin.");
+            return;
+        }
         if (openInventories.contains(uuid)) return;
 
         List<ItemStack> items = loots.get(uuid);
@@ -79,7 +85,6 @@ public class LootManager {
             Msg.info(p, "Sandığa sığmayan eşyalar doğrudan envanterine verildi.");
         }
 
-        // BÜYÜK SANDIK: En az 3 satır (27 slot), en fazla 6 satır (54 slot)
         int rows = Math.max(3, Math.min(6, (items.size() + 8) / 9));
         LootHolder holder = new LootHolder();
         Inventory inv = Bukkit.createInventory(holder, rows * 9, LOOT_TITLE);
@@ -100,10 +105,11 @@ public class LootManager {
         }
 
         if (remaining.isEmpty()) {
-            finish(uuid);
-            Msg.lootTaken(p);
-            plugin.sendToHub(p);
+            claimedLoot.add(uuid); // Tüm eşyaları aldı
+            loots.put(uuid, new ArrayList<>()); // Listeyi boşalt
+            Msg.lootClaimedWait(p); // Beklemesi gerektiğini söyle
         } else {
+            claimedLoot.remove(uuid);
             loots.put(uuid, remaining);
         }
     }
@@ -116,7 +122,15 @@ public class LootManager {
             if (t == null) continue;
             Player p = Bukkit.getPlayer(uuid);
             if (now >= t) {
-                expireLoot(uuid, p);
+                if (claimedLoot.contains(uuid)) {
+                    finish(uuid);
+                    if (p != null && p.isOnline()) {
+                        Msg.lootEnded(p);
+                        plugin.sendToHub(p);
+                    }
+                } else {
+                    expireLoot(uuid, p);
+                }
             } else if (p != null && p.isOnline()) {
                 sendBar(p, (int) Math.ceil((t - now) / 1000.0));
             }
@@ -137,6 +151,7 @@ public class LootManager {
         loots.remove(uuid);
         expireTimes.remove(uuid);
         openInventories.remove(uuid);
+        claimedLoot.remove(uuid);
         String arena = heldArenas.remove(uuid);
         if (arena != null) plugin.getArenaManager().release(arena);
     }
@@ -150,9 +165,11 @@ public class LootManager {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null && openInventories.contains(uuid)) p.closeInventory();
             List<ItemStack> items = loots.get(uuid);
-            if (p != null && p.isOnline()) {
-                if (items != null) giveOrDrop(p, items);
+            if (p != null && p.isOnline() && items != null && !items.isEmpty()) {
+                giveOrDrop(p, items);
                 Msg.info(p, "Sunucu kapanıyor, ganimetin envanterine verildi.");
+            }
+            if (p != null && p.isOnline()) {
                 Location spawn = plugin.getFallbackSpawn();
                 if (spawn != null) p.teleport(spawn);
             }
