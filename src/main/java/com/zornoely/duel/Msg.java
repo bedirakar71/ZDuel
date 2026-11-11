@@ -117,4 +117,20 @@ public final class Msg {
                 ChatColor.RED + "" + ChatColor.BOLD + " ✖ Ganimet süren doldu!",
                 ChatColor.GRAY + " Alınmayan eşyalar kayboldu, hub'a gönderiliyorsun...");
     }
+
+    // --- YENİ EKLENEN METOTLAR (Hata veren kısımlar) ---
+
+    public static void lootClaimedWait(Player p) {
+        title(p, "GANİMET ALINDI", NamedTextColor.GREEN, "Sürenin dolmasını bekle");
+        box(p,
+                ChatColor.GREEN + "" + ChatColor.BOLD + " ✔ Ganimeti topladın!",
+                ChatColor.GRAY + " Ancak arenadan çıkmak için sürenin dolmasını beklemelisin...");
+    }
+
+    public static void lootEnded(Player p) {
+        title(p, "SÜRE DOLDU", NamedTextColor.GREEN, "Hub'a gönderiliyorsun");
+        box(p,
+                ChatColor.GREEN + "" + ChatColor.BOLD + " ✔ Süre doldu!",
+                ChatColor.GRAY + " Hub'a gönderiliyorsun...");
+    }
 }
