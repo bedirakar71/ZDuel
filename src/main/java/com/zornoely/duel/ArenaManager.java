@@ -1,8 +1,11 @@
 package com.zornoely.duel;
 
+import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +28,6 @@ public class ArenaManager {
         this.file = new File(plugin.getDataFolder(), "arenas.yml");
     }
 
-    /** Nokta vs. içeren isimler YAML yolunu bozar, o yüzden sadece güvenli karakterler. */
     public static boolean isValidName(String name) {
         return name != null && NAME_PATTERN.matcher(name).matches();
     }
@@ -85,7 +87,6 @@ public class ArenaManager {
                 (float) s.getDouble("yaw"), (float) s.getDouble("pitch"));
     }
 
-    /** Büyük/küçük harf fark etmez. */
     public Arena get(String name) {
         if (name == null) return null;
         Arena a = arenas.get(name);
@@ -122,12 +123,24 @@ public class ArenaManager {
         return null;
     }
 
-    /** Arenayı boşa çıkarır ve maçta konan blokları geri alır. */
+    /** Arenayı boşa çıkarır, maçta konan blokları geri alır VE yerdeki eşyaları temizler. */
     public void release(String arenaName) {
         Arena a = arenas.get(arenaName);
         if (a == null) return;
         a.restoreBlocks();
         a.setBusy(false);
+        
+        // YENİ: Arena boşa çıktığında (ganimet süresi dolduğunda) yerdeki itemleri sil
+        Location s1 = a.getSpawn1();
+        Location s2 = a.getSpawn2();
+        if (s1 != null) clearDrops(s1);
+        if (s2 != null) clearDrops(s2);
+    }
+
+    private void clearDrops(Location loc) {
+        if (loc == null || loc.getWorld() == null) return;
+        // 60 blok çapındaki tüm yerdeki eşyaları (Item) siler
+        loc.getWorld().getNearbyEntities(loc, 60, 60, 60, e -> e instanceof Item).forEach(Entity::remove);
     }
 
     public void restoreAll() {
