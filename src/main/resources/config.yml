@@ -1,5 +1,12 @@
-config-version: 2
+config-version: 3
 settings:
   duel-duration-minutes: 15
   loot-duration-seconds: 20
   hub-command: "hub"
+  # Kazananın ganimet sandığı otomatik açılsın mı?
+  auto-open-loot: true
+  # Aynı klandan düellocuları engelle (PlaceholderAPI gerekir)
+  clan-check:
+    enabled: true
+    # ApexClan için tipik placeholder: %apexclan_clan%
+    placeholder: "%apexclan_clan%"
