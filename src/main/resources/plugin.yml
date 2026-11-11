@@ -1,9 +1,10 @@
 name: ZornoElyDuel
-version: 1.0.2
+version: 1.0.3
 main: com.zornoely.duel.ZornoElyDuel
 api-version: '1.21'
 author: ZornoEly
 description: Duel & PVP system
+softdepend: [PlaceholderAPI]
 commands:
   duel:
     description: Duel system
