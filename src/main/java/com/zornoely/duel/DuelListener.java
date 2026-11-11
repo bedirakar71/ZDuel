@@ -37,10 +37,6 @@ public class DuelListener implements Listener {
 
     public DuelListener(ZornoElyDuel plugin) { this.plugin = plugin; }
 
-    // ---------------------------------------------------------------
-    // Düello boyunca HİÇBİR komut kullanılamaz.
-    // Ganimet süresinde komutlar serbest: kazanan artık "düelloda" sayılmaz.
-    // ---------------------------------------------------------------
     @EventHandler(priority = EventPriority.LOW)
     public void onCommand(PlayerCommandPreprocessEvent e) {
         Player p = e.getPlayer();
@@ -49,9 +45,6 @@ public class DuelListener implements Listener {
         Msg.warn(p, "Düello bitene kadar hiçbir komut kullanamazsın!");
     }
 
-    // ---------------------------------------------------------------
-    // Ölüm → ganimet
-    // ---------------------------------------------------------------
     @EventHandler
     public void onDeath(PlayerDeathEvent e) {
         Player victim = e.getEntity();
@@ -60,19 +53,12 @@ public class DuelListener implements Listener {
         resolveLoss(victim, duel, false, e);
     }
 
-    /**
-     * Kaybedeni (ölen ya da oyundan çıkan) işler: eşyaları kazanana ganimet olur, düello biter.
-     * @param death ölüm eventi (çıkışta null)
-     * @return kazanan çevrimiçiydi ve düello sonuçlandı mı
-     */
     private boolean resolveLoss(Player loser, Duel duel, boolean quit, PlayerDeathEvent death) {
         DuelManager dm = plugin.getDuelManager();
         UUID oppId = duel.getOpponent(loser.getUniqueId());
         Player winner = oppId != null ? Bukkit.getPlayer(oppId) : null;
         boolean winnerOnline = winner != null && winner.isOnline();
 
-        // DİKKAT: getContents() zırh + offhand'i de içerir. Çifte saymamak için bölümler ayrı alınır.
-        // try/catch: bir hata olsa bile düello mutlaka biter (komutlar kilitli kalmasın).
         List<ItemStack> loot = new ArrayList<>();
         try {
             collect(loot, loser.getInventory().getStorageContents());
@@ -98,15 +84,24 @@ public class DuelListener implements Listener {
             }
         }
 
-        // Ganimet varsa arena, ganimet süreci bitene kadar meşgul kalır
         dm.endDuel(duel, oppId, quit ? "QUIT" : "DEATH", giveLoot);
-        if (giveLoot) plugin.getLootManager().setLoot(winner.getUniqueId(), loot, duel.getArenaName());
+        
+        if (giveLoot) {
+            plugin.getLootManager().setLoot(winner.getUniqueId(), loot, duel.getArenaName());
+            // SANDIK OTOMATİK AÇILIYOR
+            if (plugin.getConfig().getBoolean("settings.auto-open-loot", true)) {
+                final Player fw = winner;
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (fw.isOnline() && plugin.getLootManager().hasLoot(fw.getUniqueId())) {
+                        plugin.getLootManager().openLoot(fw);
+                    }
+                }, 10L); // 0.5 saniye sonra aç
+            }
+        }
 
-        // Önce durumu ilerleten işler (hub / respawn), en sona mesajlar: mesajda hata çıksa bile oyuncular takılı kalmaz
         if (winnerOnline && !giveLoot) plugin.sendToHub(winner);
 
         if (!quit) {
-            // Ölen: ölüm ekranında beklemeden otomatik respawn → hemen hub
             dm.markKilled(loser.getUniqueId());
             String winnerName = winnerOnline ? winner.getName() : "Rakibin";
             int lostItems = giveLoot ? loot.size() : 0;
@@ -139,7 +134,6 @@ public class DuelListener implements Listener {
         }
     }
 
-    // Düelloda çıkış yapan geri girince: bilgi mesajı + direkt hub
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
@@ -151,9 +145,6 @@ public class DuelListener implements Listener {
         }, 20L);
     }
 
-    // ---------------------------------------------------------------
-    // Blok koyma: Elytra modunda kapalı, Trap'te açık (maç sonunda geri alınır)
-    // ---------------------------------------------------------------
     @EventHandler(ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent e) {
         Player p = e.getPlayer();
@@ -169,7 +160,6 @@ public class DuelListener implements Listener {
         if (arena != null) arena.recordBlock(e.getBlockReplacedState());
     }
 
-    /** Düello sırasında kırılan bloklar da maç bitince eski haline döner. */
     @EventHandler(ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent e) {
         Duel duel = plugin.getDuelManager().getDuel(e.getPlayer().getUniqueId());
@@ -178,9 +168,6 @@ public class DuelListener implements Listener {
         if (arena != null) arena.recordBlock(e.getBlock().getState());
     }
 
-    // ---------------------------------------------------------------
-    // Düellocu sadece rakibine vurabilsin, dışarıdan kimse karışamasın
-    // ---------------------------------------------------------------
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDamage(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof Player victim)) return;
@@ -195,13 +182,10 @@ public class DuelListener implements Listener {
 
         Duel victimDuel = plugin.getDuelManager().getDuel(victim.getUniqueId());
         Duel attackerDuel = plugin.getDuelManager().getDuel(attacker.getUniqueId());
-        if (victimDuel == null && attackerDuel == null) return;   // düello dışı, karışma
-        if (victimDuel != attackerDuel) e.setCancelled(true);     // aynı düelloda değiller
+        if (victimDuel == null && attackerDuel == null) return;
+        if (victimDuel != attackerDuel) e.setCancelled(true);
     }
 
-    // ---------------------------------------------------------------
-    // Menüler ve ganimet sandığı
-    // ---------------------------------------------------------------
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
@@ -213,7 +197,7 @@ public class DuelListener implements Listener {
             int slot = e.getRawSlot();
             ArenaType mode = slot == 11 ? ArenaType.ELYTRA
                            : slot == 15 ? ArenaType.TRAP : null;
-            if (mode == null) return;   // boş slota tıklamak hiçbir şeyi bozmasın
+            if (mode == null) return;
 
             if (gui.getType().equals("queue")) {
                 Bukkit.getScheduler().runTask(plugin, () -> {
@@ -226,7 +210,7 @@ public class DuelListener implements Listener {
                     return;
                 }
                 String raw = p.getMetadata("duel_target").get(0).asString();
-                p.removeMetadata("duel_target", plugin);   // sadece geçerli bir slota tıklanınca silinir
+                p.removeMetadata("duel_target", plugin);
 
                 Player found = null;
                 try { found = Bukkit.getPlayer(UUID.fromString(raw)); }
@@ -236,14 +220,13 @@ public class DuelListener implements Listener {
                 Bukkit.getScheduler().runTask(plugin, () -> sendInvite(p, target, mode));
             }
         } else if (holder instanceof LootManager.LootHolder) {
-            // Ganimet sandığından sadece ALINABİLİR; içeri eşya konamaz
             int raw = e.getRawSlot();
             boolean clickedTop = raw >= 0 && raw < e.getInventory().getSize();
             InventoryAction action = e.getAction();
             if (clickedTop) {
                 if (!isTakeAction(action)) e.setCancelled(true);
             } else if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-                e.setCancelled(true);   // kendi envanterinden shift-click ile sandığa atmayı engelle
+                e.setCancelled(true);
             }
         }
     }
@@ -268,6 +251,10 @@ public class DuelListener implements Listener {
             Msg.warn(p, "Hedef oyuncu şu an düelloda!");
             return;
         }
+        if (plugin.getClanHook().isSameClan(p, target)) {
+            Msg.warn(p, "Aynı klandan bir oyuncuya düello daveti gönderemezsin!");
+            return;
+        }
         plugin.getInviteManager().createInvite(p.getUniqueId(), target.getUniqueId(), mode);
         Msg.ok(p, target.getName() + " oyuncusuna " + mode.getDisplayName() + " daveti gönderildi!");
         Msg.invite(target, p.getName(), mode);
@@ -283,7 +270,7 @@ public class DuelListener implements Listener {
         if (holder instanceof LootManager.LootHolder) {
             int topSize = e.getInventory().getSize();
             for (int slot : e.getRawSlots()) {
-                if (slot < topSize) {   // sandığın üstüne sürükleyerek eşya koymayı engelle
+                if (slot < topSize) {
                     e.setCancelled(true);
                     return;
                 }
@@ -299,13 +286,10 @@ public class DuelListener implements Listener {
         if (holder instanceof LootManager.LootHolder) {
             plugin.getLootManager().onInventoryClose(p, e.getInventory());
         } else if (holder instanceof GUI.DuelHolder gui && gui.getType().equals("invite")) {
-            p.removeMetadata("duel_target", plugin);   // ESC ile kapatılırsa eski hedef kalmasın
+            p.removeMetadata("duel_target", plugin);
         }
     }
 
-    // ---------------------------------------------------------------
-    // Çıkış: düelloda çıkan YENİLMİŞ sayılır, eşyaları rakibin ganimet sandığına düşer
-    // ---------------------------------------------------------------
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         Player p = e.getPlayer();
@@ -320,25 +304,21 @@ public class DuelListener implements Listener {
         if (duel != null) {
             wasInArena = true;
             if (resolveLoss(p, duel, true, null)) {
-                dm.markQuitLoss(uuid);   // geri girince bilgi mesajı + hub
+                dm.markQuitLoss(uuid);
             }
         }
         if (plugin.getLootManager().hasLoot(uuid)) wasInArena = true;
 
         plugin.getLootManager().remove(uuid);
-        dm.forget(uuid);   // ölüp respawn olmadan çıkanın işareti kalmasın
+        dm.forget(uuid);
         p.removeMetadata("duel_target", plugin);
 
-        // Arenada çıkan oyuncu tekrar girince arenanın ortasında doğmasın
         if (wasInArena) {
             Location spawn = plugin.getFallbackSpawn();
             if (spawn != null) p.teleport(spawn);
         }
     }
 
-    // ---------------------------------------------------------------
-    // NPC'ye sağ tık → sıra menüsü
-    // ---------------------------------------------------------------
     @EventHandler
     public void onInteractEntity(PlayerInteractEntityEvent e) {
         if (e.getHand() != EquipmentSlot.HAND) return;
