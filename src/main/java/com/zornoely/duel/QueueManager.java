@@ -4,13 +4,16 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class QueueManager {
     private final ZornoElyDuel plugin;
     private final List<UUID> elytraQueue = new ArrayList<>();
     private final List<UUID> trapQueue = new ArrayList<>();
+    private final Set<UUID> warnedClanBlock = new HashSet<>();
 
     public QueueManager(ZornoElyDuel plugin) { this.plugin = plugin; }
 
@@ -46,11 +49,10 @@ public class QueueManager {
         tryMatch(mode);
 
         if (queue.contains(id) && queue.size() >= 2) {
-            Msg.info(p, "Tüm arenalar dolu, biri boşalınca düello otomatik başlayacak.");
+            Msg.info(p, "Tüm arenalar dolu veya uygun rakip yok, biri boşalınca düello otomatik başlayacak.");
         }
     }
 
-    /** Her saniye çağrılır: arena boşalınca bekleyenler otomatik eşleşir. */
     public void processQueues() {
         tryMatch(ArenaType.ELYTRA);
         tryMatch(ArenaType.TRAP);
@@ -69,16 +71,31 @@ public class QueueManager {
 
         while (queue.size() >= 2 && plugin.getArenaManager().findAvailable(mode) != null) {
             UUID u1 = queue.remove(0);
-            UUID u2 = queue.remove(0);
             Player p1 = Bukkit.getPlayer(u1);
-            Player p2 = Bukkit.getPlayer(u2);
-            if (p1 == null || p2 == null) {
-                if (p1 != null) queue.add(0, u1);
-                if (p2 != null) queue.add(0, u2);
-                continue;
+            if (p1 == null) continue;
+
+            int partnerIdx = -1;
+            for (int i = 0; i < queue.size(); i++) {
+                Player cand = Bukkit.getPlayer(queue.get(i));
+                if (cand == null) continue;
+                if (plugin.getClanHook().isSameClan(p1, cand)) continue;
+                partnerIdx = i;
+                break;
             }
+
+            if (partnerIdx == -1) {
+                if (p1.isOnline() && warnedClanBlock.add(u1)) {
+                    Msg.warn(p1, "Sıradaki diğer oyuncular aynı klandan; eşleşemiyorsun. Farklı bir oyuncu bekleniyor...");
+                }
+                queue.add(0, u1);
+                break;
+            }
+
+            UUID u2 = queue.remove(partnerIdx);
+            Player p2 = Bukkit.getPlayer(u2);
+            if (p2 == null) { queue.add(0, u1); continue; }
+
             if (plugin.getDuelManager().startDuel(p1, p2, mode) == null) {
-                // Başlatılamadı (ör. ışınlanma iptal edildi): ikisi de sıradan çıkar, aynı hata döngüde tekrarlanmasın
                 String fail = "Düello başlatılamadı, lütfen tekrar sıraya gir.";
                 Msg.warn(p1, fail);
                 Msg.warn(p2, fail);
@@ -89,5 +106,6 @@ public class QueueManager {
     public void removeFromAll(UUID uuid) {
         elytraQueue.remove(uuid);
         trapQueue.remove(uuid);
+        warnedClanBlock.remove(uuid);
     }
 }
