@@ -30,7 +30,6 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
         return s.hasPermission("zornoely.admin") || s.isOp();
     }
 
-    /** Admin değilse mesaj atar ve true döner. */
     private boolean denyIfNotAdmin(CommandSender s) {
         if (isAdmin(s)) return false;
         Msg.warn(s, "Yetkin yok!");
@@ -41,7 +40,6 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         String sub = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "";
 
-        // Konsol sadece yönetici kurtarma komutlarını kullanabilir
         if (!(sender instanceof Player p)) {
             switch (sub) {
                 case "forceend", "bitir" -> handleForceEnd(sender, args);
@@ -171,6 +169,10 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
             Msg.warn(p, "Bu oyuncu şu an düelloda!");
             return;
         }
+        if (plugin.getClanHook().isSameClan(p, target)) {
+            Msg.warn(p, "Aynı klandan bir oyuncuya düello daveti gönderemezsin!");
+            return;
+        }
         if (plugin.getLootManager().hasLoot(p.getUniqueId())) {
             Msg.warn(p, "Önce ganimetini almalısın! (/duel sandik)");
             return;
@@ -186,6 +188,11 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
         InviteManager.Invite inv = plugin.getInviteManager().getInvite(inviter.getUniqueId());
         if (inv == null || !inv.target.equals(p.getUniqueId())) {
             Msg.warn(p, "Aktif davet yok!");
+            return;
+        }
+        if (plugin.getClanHook().isSameClan(inviter, p)) {
+            plugin.getInviteManager().removeInvite(inviter.getUniqueId());
+            Msg.warn(p, "Aynı klandan olduğunuz için bu düelloyu kabul edemezsin!");
             return;
         }
         DuelManager dm = plugin.getDuelManager();
@@ -227,7 +234,6 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
         Msg.warn(inviter, p.getName() + " davetini reddetti.");
     }
 
-    /** Yönetici (konsoldan da çalışır): takılı kalan bir düelloyu zorla bitirir. */
     private void handleForceEnd(CommandSender s, String[] args) {
         if (denyIfNotAdmin(s)) return;
         if (args.length < 2) { Msg.warn(s, "Kullanım: /duel forceend <oyuncu>"); return; }
@@ -250,7 +256,6 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
         Msg.ok(s, "Düello sonlandırıldı.");
     }
 
-    /** Yönetici (konsoldan da çalışır): takılı kalıp sürekli DOLU görünen arenayı boşa çıkarır. */
     private void handleRelease(CommandSender s, String[] args) {
         if (denyIfNotAdmin(s)) return;
         if (args.length < 2) { Msg.warn(s, "Kullanım: /duel release <arena>"); return; }
@@ -287,4 +292,4 @@ public class DuelCommand implements CommandExecutor, TabCompleter {
         }
         return out;
     }
-}
+    }
