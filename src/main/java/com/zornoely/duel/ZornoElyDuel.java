@@ -16,6 +16,7 @@ public class ZornoElyDuel extends JavaPlugin {
     private QueueManager queueManager;
     private LootManager lootManager;
     private InviteManager inviteManager;
+    private ClanHook clanHook;
 
     public static ZornoElyDuel getInstance() { return instance; }
 
@@ -28,6 +29,7 @@ public class ZornoElyDuel extends JavaPlugin {
         arenaManager  = new ArenaManager(this);
         lootManager   = new LootManager(this);
         inviteManager = new InviteManager(this);
+        clanHook      = new ClanHook(this);
         duelManager   = new DuelManager(this);
         queueManager  = new QueueManager(this);
 
@@ -38,7 +40,6 @@ public class ZornoElyDuel extends JavaPlugin {
         getCommand("duel").setTabCompleter(cmd);
         Bukkit.getPluginManager().registerEvents(new DuelListener(this), this);
 
-        // Her saniye: düello süresi, ganimet süresi + geri sayım, davet temizliği, sıra eşleştirme
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             safe("düello süresi", () -> duelManager.checkTimeouts());
             safe("ganimet", () -> lootManager.tick());
@@ -52,10 +53,10 @@ public class ZornoElyDuel extends JavaPlugin {
     @Override
     public void onDisable() {
         try {
-            if (lootManager != null) lootManager.flushAll();   // bekleyen ganimetler oyunculara verilir
-            if (duelManager != null) duelManager.evacuateAll(); // arenadaki oyuncular dışarı alınır
+            if (lootManager != null) lootManager.flushAll();
+            if (duelManager != null) duelManager.evacuateAll();
             if (arenaManager != null) {
-                arenaManager.restoreAll();                      // Trap'te konan bloklar geri alınır
+                arenaManager.restoreAll();
                 arenaManager.save();
             }
         } catch (Throwable t) {
@@ -63,12 +64,22 @@ public class ZornoElyDuel extends JavaPlugin {
         }
     }
 
-    /** Eski config.yml (20 dk / 40 sn) bir kereliğine yeni değerlere (15 dk / 20 sn) çekilir. */
     private void migrateConfig() {
-        if (getConfig().getInt("config-version", 1) >= 2) return;
-        getConfig().set("settings.duel-duration-minutes", 15);
-        getConfig().set("settings.loot-duration-seconds", 20);
-        getConfig().set("config-version", 2);
+        org.bukkit.configuration.file.FileConfiguration cfg = getConfig();
+        int version = cfg.getInt("config-version", 1);
+        if (version >= 3) return;
+
+        if (version < 2) {
+            cfg.set("settings.duel-duration-minutes", 15);
+            cfg.set("settings.loot-duration-seconds", 20);
+        }
+        if (!cfg.isSet("settings.clan-check.enabled"))
+            cfg.set("settings.clan-check.enabled", true);
+        if (!cfg.isSet("settings.clan-check.placeholder"))
+            cfg.set("settings.clan-check.placeholder", "%apexclan_clan%");
+        if (!cfg.isSet("settings.auto-open-loot"))
+            cfg.set("settings.auto-open-loot", true);
+        cfg.set("config-version", 3);
         saveConfig();
     }
 
@@ -80,7 +91,6 @@ public class ZornoElyDuel extends JavaPlugin {
         }
     }
 
-    /** Hub komutu çalışmazsa kullanılacak yedek nokta: ana dünyanın spawn'ı. */
     public Location getFallbackSpawn() {
         List<World> worlds = Bukkit.getWorlds();
         return worlds.isEmpty() ? null : worlds.get(0).getSpawnLocation();
@@ -106,4 +116,5 @@ public class ZornoElyDuel extends JavaPlugin {
     public QueueManager getQueueManager()     { return queueManager; }
     public LootManager getLootManager()       { return lootManager; }
     public InviteManager getInviteManager()   { return inviteManager; }
+    public ClanHook getClanHook()             { return clanHook; }
 }
